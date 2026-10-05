@@ -1,0 +1,13 @@
+# Secrets: never commit
+.env
+*.key
+*.pem
+
+# Run outputs (top-level only; weatheragents/data/ holds bundled lookup tables)
+/data/
+
+# Python
+__pycache__/
+.venv/
+.pytest_cache/
+*.egg-info/

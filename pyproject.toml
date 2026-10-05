@@ -1,0 +1,16 @@
+[project]
+name = "weatheragents"
+version = "0.1.0"
+description = "Multi-agent pipeline for Polymarket weather markets"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28",
+    "pydantic>=2.9",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
