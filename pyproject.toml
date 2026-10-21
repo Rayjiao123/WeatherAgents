@@ -4,8 +4,12 @@ version = "0.1.0"
 description = "Multi-agent pipeline for Polymarket weather markets"
 requires-python = ">=3.12"
 dependencies = [
+    "ddgs>=9.16.0",
     "httpx>=0.28",
+    "lightgbm>=4.7.0",
+    "numpy>=2.5.4",
     "pydantic>=2.9",
+    "tzdata>=2026.5",
 ]
 
 [dependency-groups]

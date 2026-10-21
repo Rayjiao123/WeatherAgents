@@ -16,6 +16,7 @@ from pathlib import Path
 
 import httpx
 
+from weatheragents.timeutil import fmt as fmt_ict, stamp as ict_stamp
 from weatheragents.schemas import (
     Bracket,
     BracketPrice,
@@ -200,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
     contracts, skipped = scout(events, min_liquidity=args.min_liquidity, min_hours_left=args.min_hours)
 
     args.out.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = ict_stamp()
     out_file = args.out / f"contract_list_{stamp}.json"
     out_file.write_text(
         json.dumps([c.model_dump(mode="json") for c in contracts], indent=2, ensure_ascii=False),
@@ -211,12 +212,12 @@ def main(argv: list[str] | None = None) -> int:
     parse_failures = [s for s in skipped if s.startswith("parse:")]
     for reason in parse_failures:
         print(f"  ! {reason}", file=sys.stderr)
-    print(f"\n{'city':<18}{'kind':<9}{'date':<12}{'station':<9}{'brackets':>9}{'liquidity':>12}  resolves (UTC)")
+    print(f"\n{'city':<18}{'kind':<9}{'date':<12}{'station':<9}{'brackets':>9}{'liquidity':>12}  resolves (ICT)")
     for c in contracts:
         s, p = c.semantics, c.pricing
         print(
             f"{s.city:<18}{s.kind:<9}{s.observation_date!s:<12}{s.station_code:<9}"
-            f"{len(s.brackets):>9}{p.total_liquidity:>12,.0f}  {s.resolves_at:%m-%d %H:%M}"
+            f"{len(s.brackets):>9}{p.total_liquidity:>12,.0f}  {fmt_ict(s.resolves_at)}"
         )
     print(f"\nwrote {out_file}")
     return 0

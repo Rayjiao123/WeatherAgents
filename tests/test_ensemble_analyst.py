@@ -153,3 +153,30 @@ def test_analyze_contract_wires_fetch_to_report(monkeypatch):
     assert captured["unit"] == "C"
     assert 30 < captured["lat"] < 31
     assert report.member_count == 3
+
+
+def test_fetch_falls_back_to_individual_models_when_the_combined_request_fails():
+    import httpx
+
+    from weatheragents.ensemble_analyst import fetch_daily_payload
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        models = request.url.params["models"]
+        if "," in models or models == "icon_seamless":  # combined request and one model are down
+            return httpx.Response(500, json={"error": True})
+        return httpx.Response(200, json={"daily": {"time": ["2026-10-14"], f"temperature_2m_max_member01_{models}": [20.0]}})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    daily = fetch_daily_payload(client, lat=1, lon=1, obs_date=date(2026, 10, 14), variable="temperature_2m_max", unit="C",
+                                model="icon_seamless,gfs_seamless,ecmwf_ifs025")
+    assert daily["time"] == ["2026-10-14"]
+    assert "temperature_2m_max_member01_gfs_seamless" in daily and "temperature_2m_max_member01_ecmwf_ifs025" in daily
+    assert not any("icon_seamless" in k for k in daily)
+
+    def all_down(request):
+        return httpx.Response(500, json={"error": True})
+
+    import pytest
+    with pytest.raises(ForecastRangeError):
+        fetch_daily_payload(httpx.Client(transport=httpx.MockTransport(all_down)), lat=1, lon=1, obs_date=date(2026, 10, 14),
+                            variable="temperature_2m_max", unit="C", model="icon_seamless,gfs_seamless")
