@@ -36,14 +36,3 @@ flowchart TD
 **Market watchers.** They record every bracket's price over time and detect the moment a new market is funded, so a forecast is ready when it opens.
 
 **Evaluator.** Every forecast is logged with the price at that moment and scored against the real result and against the market. Model inputs and trading rules stay only if they improve on data they have not seen.
-
-## Run it
-
-```
-uv sync
-python -m weatheragents.daily               # scout, forecast, resolve, score
-python -m weatheragents.trader --watch 5    # trading accounts
-python -m weatheragents.trader --report     # account report
-```
-
-Code is in `weatheragents/` and tests are in `tests/`.
