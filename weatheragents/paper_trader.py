@@ -33,7 +33,7 @@ from weatheragents.market_monitor import SNAP_PATH, read_snapshots
 
 THRESHOLDS = (0.03, 0.05, 0.08, 0.12)
 EXIT_HOURS = (24, 12, 6)
-PRIMARY_HOURS = 12  # fixed in advance in PREREGISTERED.md
+PRIMARY_HOURS = 12  # fixed before the data arrived
 CURVE_HOURS = (3, 6, 12, 18, 24, 36)
 WEATHER_FEE_RATE = 0.05  # Polymarket weather markets: takers pay shares * rate * p * (1 - p) in USDC, makers nothing (from the market feeSchedule)
 FEE_RATE = WEATHER_FEE_RATE

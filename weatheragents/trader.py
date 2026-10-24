@@ -6,7 +6,7 @@
 It never places a real order. Each account keeps a ledger in data/trader/<name>.jsonl of what it WOULD have done at
 the live quotes. Several accounts run side by side so each added rule is measured against the control:
 
-  control    the rule fixed in PREREGISTERED.md: edge >= 5c, pay the ask, $10, sell 12 hours later
+  control    the rule fixed in advance: edge >= 5c, pay the ask, $10, sell 12 hours later
   careful    adds the filters: skip when the model is unsure, when the spread eats the edge, when the price is already
              running against us, and when too many trades pile up in one region
   patient    careful, plus a resting limit order inside the spread instead of paying the ask
