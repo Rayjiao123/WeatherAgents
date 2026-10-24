@@ -66,6 +66,7 @@ class Policy:
     max_adverse_drift: float | None = None  # skip when the side's price moved this much against us in the last 3 hours
     max_per_region: int | None = None  # open plus waiting trades sharing a station-code prefix
     max_entry_age_hours: float = 6.0  # the prediction must be this fresh
+    only_at_open: bool = False  # trade only forecasts made when the market was funded, never catch-up refreshes
     max_new_per_day: int = 40
     max_open: int = 120
     # limit orders
@@ -99,7 +100,7 @@ def presets() -> dict[str, Policy]:
     patient = replace(careful, name="patient", maker=True)
     smart = replace(patient, name="smart", sizing="kelly", stop_loss=0.12, target_margin=0.03, min_hold_edge=0.02, fair_shrink=0.5, exit_hours=24.0)
     quick = replace(control, name="quick", take_profit=0.01, stop_loss=0.10)
-    flip = replace(control, name="flip", max_entry_age_hours=0.5, take_profit=0.001)
+    flip = replace(control, name="flip", max_entry_age_hours=0.5, take_profit=0.001, only_at_open=True)
     return {p.name: p for p in (control, careful, patient, smart, quick, flip)}
 
 
@@ -299,6 +300,8 @@ def step(live: dict[str, dict], preds: dict[str, dict], outcomes: dict[str, dict
         if eid in pos or eid in orders or eid in outcomes or eid not in live or n_open >= policy.max_open or n_today >= policy.max_new_per_day:
             continue
         if (now - datetime.fromisoformat(p["logged_at"])).total_seconds() / 3600 > policy.max_entry_age_hours or live[eid]["resolves_at"] <= now:
+            continue
+        if policy.only_at_open and p.get("trigger") != "open":
             continue
         t = decide(p, live[eid]["quotes"], policy, live[eid].get("fee_rate", policy.fee_rate))
         if t is None:

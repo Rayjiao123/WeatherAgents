@@ -146,7 +146,7 @@ def test_fees_make_buying_and_selling_cost_more_and_profit_must_clear_them():
 def test_flip_account_buys_only_at_the_open_and_sells_at_any_net_profit_or_12h():
     flip = replace(tr.presets()["flip"], fee_rate=0.0)
     assert run(flip, p=pred(logged=NOW - timedelta(hours=2))) == []  # not an opening: the prediction is two hours old
-    rec = run(flip, p=pred(logged=NOW - timedelta(minutes=10)))[0]
+    rec = run(flip, p=pred(logged=NOW - timedelta(minutes=10)) | {"trigger": "open"})[0]
     ps = {**rec, "closed": None}
     q = lambda b, a: {"best_bid": b, "best_ask": a}
     assert tr.exit_reason(ps, q(0.46, 0.50), 1.0, flip) is None  # break-even is not a profit
@@ -178,3 +178,11 @@ def test_daily_loss_limit_and_drawdown_kill():
     assert tr.risk_block(pos, {}, NOW, replace(CONTROL, daily_loss_limit=5.0)).startswith("daily loss limit")
     assert tr.risk_block(pos, {}, NOW, replace(CONTROL, daily_loss_limit=500.0, kill_drawdown=500.0)) is None
     assert tr.risk_block(pos, {}, NOW + timedelta(days=1), replace(CONTROL, daily_loss_limit=5.0, kill_drawdown=500.0)) is None  # a new day resets the daily limit
+
+
+def test_flip_trades_only_forecasts_made_at_the_open():
+    flip = replace(tr.presets()["flip"], fee_rate=0.0)
+    assert run(flip, p=pred(logged=NOW - timedelta(minutes=5))) == []  # no trigger field: not known to be an opening
+    assert run(flip, p=pred(logged=NOW - timedelta(minutes=5)) | {"trigger": "catchup"}) == []
+    assert len(run(flip, p=pred(logged=NOW - timedelta(minutes=5)) | {"trigger": "open"})) == 1
+    assert len(run(CONTROL, p=pred(logged=NOW - timedelta(minutes=5)) | {"trigger": "catchup"})) == 1  # the other accounts also use refreshed forecasts

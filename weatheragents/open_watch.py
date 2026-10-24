@@ -17,6 +17,7 @@ import argparse
 import json
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -33,6 +34,9 @@ from weatheragents.timeutil import now as ict_now
 SEEN_PATH = Path("data") / "market" / "seen_events.json"
 OPENINGS_PATH = Path("data") / "market" / "openings.jsonl"
 LOG_PATH = Path("data") / "log" / plog.PREDICTIONS
+CATCHUP_AGE_HOURS = 24.0  # refresh a market's forecast when its newest one is older than this
+CATCHUP_PER_PASS = 8  # and only this many per pass, to stay inside the weather API quota
+MIN_HOURS_LEFT = 20.0
 DEFAULT_LLM_BUDGET = 0  # full (LLM + web search) runs per ICT calendar day; off since 2026-10-16, it scored 0.44 behind the market
 
 
@@ -67,6 +71,19 @@ def llm_allowed(state: dict, budget: int, today: str) -> bool:
     return state["llm_used"] < budget
 
 
+def stale_highs(funded: list, newest: dict[str, str], now: datetime, skip: set[str]) -> list:
+    """Funded high-temperature markets with no forecast newer than CATCHUP_AGE_HOURS, nearest to resolution last."""
+    out = []
+    for c in funded:
+        s = c.semantics
+        if s.kind != "highest" or s.event_id in skip or (s.resolves_at - now).total_seconds() / 3600 < MIN_HOURS_LEFT:
+            continue
+        last = newest.get(s.event_id)
+        if last is None or (now - datetime.fromisoformat(last)).total_seconds() / 3600 > CATCHUP_AGE_HOURS:
+            out.append(c)
+    return sorted(out, key=lambda c: -c.pricing.total_liquidity)
+
+
 def one_pass(http: httpx.Client, state: dict, *, budget: int, llm, calib, ml_model, sameday_model) -> int:
     funded = funded_contracts(fetch_events(http))
     done = set(state["ids"])
@@ -93,13 +110,24 @@ def one_pass(http: httpx.Client, state: dict, *, budget: int, llm, calib, ml_mod
         for client, version, model in runs:
             try:
                 result = run_event(c, http, client, rounds=2, calib=calib, ml_model=ml_model, sameday_model=sameday_model)
-                plog.append(LOG_PATH, plog.build_record(c, result, run_id=run_id, model=model, version=version))
+                plog.append(LOG_PATH, plog.build_record(c, result, run_id=run_id, model=model, version=version, trigger="open"))
                 print(f"        logged {version}", flush=True)
             except Exception as exc:  # one failing run must not stop the watcher
                 print(f"        ! {version}: {type(exc).__name__}: {exc}", file=sys.stderr)
         handled += 1
         save_seen(state)
     save_seen(state)
+    newest: dict[str, str] = {}  # markets we missed at the open (PC asleep, or listed before we watched) still need a forecast to trade on
+    for p in plog.read(LOG_PATH):
+        if p.get("ml") and p["logged_at"] > newest.get(p["event_id"], ""):
+            newest[p["event_id"]] = p["logged_at"]
+    for c in stale_highs(funded, newest, ict_now(), {x.semantics.event_id for x in fresh})[:CATCHUP_PER_PASS]:
+        try:
+            result = run_event(c, http, None, rounds=2, calib=calib, ml_model=ml_model, sameday_model=sameday_model)
+            plog.append(LOG_PATH, plog.build_record(c, result, run_id=plog.new_run_id(), model="none", version=plog.NUMERIC_VERSION, trigger="catchup"))
+            print(f"{ict_now():%H:%M} catch-up forecast {c.semantics.city} {c.semantics.observation_date}", flush=True)
+        except Exception as exc:
+            print(f"        ! catch-up {c.semantics.city}: {type(exc).__name__}: {exc}", file=sys.stderr)
     return handled
 
 

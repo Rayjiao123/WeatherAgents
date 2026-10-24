@@ -45,7 +45,7 @@ def read(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-def build_record(contract, result: dict, *, run_id: str, model: str, version: str = PIPELINE_VERSION) -> dict:
+def build_record(contract, result: dict, *, run_id: str, model: str, version: str = PIPELINE_VERSION, trigger: str | None = None) -> dict:
     """One prediction. `contract` is a schemas.Contract, `result` is pipeline.run_event's dict."""
     s = contract.semantics
     return {
@@ -53,6 +53,7 @@ def build_record(contract, result: dict, *, run_id: str, model: str, version: st
         "logged_at": ict_now().isoformat(),
         "llm_model": model,
         "pipeline_version": version,
+        "trigger": trigger,  # "open" for a run made when the market was funded, "catchup" for a refresh of an older market
         "event_id": s.event_id,
         "city": s.city,
         "station_code": s.station_code,
