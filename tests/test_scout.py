@@ -103,3 +103,12 @@ def test_scout_filters():
     contracts, skipped = scout(events, min_liquidity=20_000, min_hours_left=6, now=now)
     assert [c.semantics.event_id for c in contracts] == ["ok"]
     assert len(skipped) == 3
+
+
+def test_station_code_is_read_from_the_aviationweather_metar_link():
+    from weatheragents.scout import parse_station
+
+    event = {"resolutionSource": "https://aviationweather.gov/api/data/metar?ids=RKSI&format=raw&date=2026-10-25T12:00:00Z&hours=24", "description": ""}
+    assert parse_station(event)[1] == "RKSI"
+    old = {"resolutionSource": "https://www.wunderground.com/history/daily/cn/jinan/ZSJN", "description": ""}
+    assert parse_station(old)[1] == "ZSJN"  # the older format still works

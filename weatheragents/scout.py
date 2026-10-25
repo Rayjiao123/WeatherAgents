@@ -33,6 +33,7 @@ TITLE_RE = re.compile(r"^(Highest|Lowest) temperature in (.+?) on .+\?$")
 OBS_DATE_RE = re.compile(r"on (\d{1,2} [A-Z][a-z]{2} '\d{2})")
 BRACKET_RE = re.compile(r"^(-?\d+)(?:-(-?\d+))?°([CF])( or below| or higher)?$")
 NOAA_SITE_RE = re.compile(r"site=(\w+)")
+AVIATION_RE = re.compile(r"aviationweather\.gov/api/data/metar\?ids=([A-Z0-9]{4})")  # the resolution source Polymarket moved to in late October
 WUNDERGROUND_RE = re.compile(r"wunderground\.com/history/daily/\S*/([A-Z]{4})\b")
 STATION_NAME_RE = re.compile(r"recorded (?:by NOAA )?at the (.+?) Station")
 URL_RE = re.compile(r"https?://\S+")
@@ -77,6 +78,8 @@ def parse_station(event: dict) -> tuple[str | None, str | None]:
     code = None
     if m := NOAA_SITE_RE.search(text):
         code = m.group(1).upper()
+    elif m := AVIATION_RE.search(text):
+        code = m.group(1)
     elif m := WUNDERGROUND_RE.search(text):
         code = m.group(1)
     name = m.group(1) if (m := STATION_NAME_RE.search(text)) else None
